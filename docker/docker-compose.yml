@@ -289,6 +289,10 @@ services:
     container_name: realtime-dev.${CONTAINER_PREFIX}-realtime
     image: supabase/realtime:v2.76.5
     restart: unless-stopped
+    networks:                     # <--- ADD THIS BLOCK
+      default:                    # <--- ADD THIS BLOCK
+        aliases:                  # <--- ADD THIS BLOCK
+          - realtime-dev.supabase-realtime   # <--- ADD THIS BLOCK
     depends_on:
       db:
         # Disable this if you are using an external Postgres database
