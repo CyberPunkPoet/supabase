@@ -77,6 +77,10 @@ services:
     container_name: ${CONTAINER_PREFIX}-kong
     image: kong/kong:3.9.1
     restart: unless-stopped
+    ulimits:            # <--- ADD THIS
+      nofile:           # <--- ADD THIS
+        soft: 65536     # <--- ADD THIS
+        hard: 65536     # <--- ADD THIS
     networks:
       default:
         aliases:
