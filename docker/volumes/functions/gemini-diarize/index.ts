@@ -1,39 +1,25 @@
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.7"
-
-const SUPABASE_URL = Deno.env.get('SUPABASE_URL') || ""
-const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ""
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
-const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY') // Shared secret between extension and VPS
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash-lite:generateContent"
+const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-extension-key',
 }
 
-serve(async (req) => {
+Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders })
   }
 
   try {
-    const supabaseClient = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY)
     const extensionKey = req.headers.get('x-extension-key')
-    
-    // Auth Strategy 1: User JWT
     const authHeader = req.headers.get('Authorization')
-    let user = null
-    
-    if (authHeader) {
-      const { data: { user: authUser } } = await supabaseClient.auth.getUser(authHeader.replace('Bearer ', ''))
-      user = authUser
-    }
 
-    // Auth Strategy 2: Internal Extension Key (Fallback for background scripts)
     const isExtensionAuthenticated = extensionKey && extensionKey === INTERNAL_EXTENSION_KEY
 
-    if (!user && !isExtensionAuthenticated) {
+    // Verify either our internal extension key or an authorized bearer header
+    if (!isExtensionAuthenticated && !authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized: Extension not authenticated' }), {
         status: 401,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -41,26 +27,18 @@ serve(async (req) => {
     }
 
     const { asr_text } = await req.json()
-    
-    // Fetch key logic: 
-    // 1. If User exists, check their ai_credentials first.
-    // 2. Fallback to System Key if User has no key OR if this is an Extension-Key-only request.
-    
-    let apiKey = SYSTEM_GEMINI_API_KEY
 
-    if (user) {
-      const { data: credential } = await supabaseClient
-        .from('ai_credentials')
-        .select('api_key')
-        .eq('user_id', user.id)
-        .eq('provider', 'gemini')
-        .single()
-      
-      if (credential?.api_key) apiKey = credential.api_key
+    if (!asr_text) {
+      return new Response(JSON.stringify({ error: 'No transcription text provided' }), {
+        status: 400,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
     }
 
+    const apiKey = SYSTEM_GEMINI_API_KEY
+
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'No Gemini API key found for user. Please add it in settings.' }), {
+      return new Response(JSON.stringify({ error: 'No Gemini API key configured on VPS (GEMINI_API_KEY environment variable is missing).' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
@@ -76,6 +54,8 @@ Rules:
 
 Input ASR: ${asr_text}`
 
+    console.log("Calling Gemini API...")
+
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: {
@@ -89,18 +69,20 @@ Input ASR: ${asr_text}`
     })
 
     const data = await response.json()
-    
+
     if (data.error) {
-        throw new Error(`Gemini API Error: ${data.error.message}`)
+      console.error("Gemini Error:", data.error)
+      throw new Error(`Gemini API Error: ${data.error.message}`)
     }
 
-    const diarizedText = data.candidates[0].content.parts[0].text
+    const diarizedText = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
 
     return new Response(JSON.stringify({ diarizedText }), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
-    return new Response(JSON.stringify({ error: error.message }), {
+    console.error("Diarize Function Error:", error)
+    return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     })
