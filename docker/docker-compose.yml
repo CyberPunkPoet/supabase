@@ -466,6 +466,8 @@ services:
       SUPABASE_DB_URL: postgresql://postgres:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}
       # TODO: Allow configuring VERIFY_JWT per function.
       VERIFY_JWT: "${FUNCTIONS_VERIFY_JWT}"
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+   INTERNAL_EXTENSION_KEY: ${INTERNAL_EXTENSION_KEY}
     command:
       [
         "start",
