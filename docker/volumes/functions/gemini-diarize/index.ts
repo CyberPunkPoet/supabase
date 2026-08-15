@@ -1,15 +1,16 @@
+/// <reference path="../../../../../monorepo/node_modules/@types/deno/index.d.ts" />
+
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent"
 
-const corsHeaders = {
+const diarizeCorsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-extension-key',
 }
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
-    return new Response('ok', { headers: corsHeaders })
+    return new Response('ok', { headers: diarizeCorsHeaders })
   }
 
   try {
@@ -22,7 +23,7 @@ Deno.serve(async (req: Request) => {
     if (!isExtensionAuthenticated && !authHeader) {
       return new Response(JSON.stringify({ error: 'Unauthorized: Extension not authenticated' }), {
         status: 401,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...diarizeCorsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -33,7 +34,7 @@ Deno.serve(async (req: Request) => {
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'No Gemini API key configured on VPS (GEMINI_API_KEY environment variable is missing).' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...diarizeCorsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -57,7 +58,7 @@ Deno.serve(async (req: Request) => {
         }))
 
       return new Response(JSON.stringify({ models }), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...diarizeCorsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -65,7 +66,7 @@ Deno.serve(async (req: Request) => {
     if (!asr_text && !audio) {
       return new Response(JSON.stringify({ error: 'No transcription text or audio provided' }), {
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        headers: { ...diarizeCorsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
@@ -123,13 +124,13 @@ Input ASR: ${asr_text}`
     const diarizedText = data.candidates?.[0]?.content?.parts?.[0]?.text || ""
 
     return new Response(JSON.stringify({ diarizedText }), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...diarizeCorsHeaders, 'Content-Type': 'application/json' },
     })
   } catch (error) {
     console.error("Diarize Function Error:", error)
     return new Response(JSON.stringify({ error: (error as Error).message }), {
       status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      headers: { ...diarizeCorsHeaders, 'Content-Type': 'application/json' },
     })
   }
 })

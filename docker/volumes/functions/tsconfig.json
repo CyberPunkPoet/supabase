@@ -1,0 +1,14 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "lib": ["ESNext", "DOM"],
+    "strict": true,
+    "skipLibCheck": true,
+    "ignoreDeprecations": "5.0",
+    "baseUrl": ".",
+    "typeRoots": ["./node_modules", "../../../../monorepo/node_modules/@types"],
+    "types": ["deno"]
+  }
+}
