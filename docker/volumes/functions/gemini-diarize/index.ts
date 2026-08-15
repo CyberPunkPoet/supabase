@@ -96,7 +96,7 @@ Input ASR: ${asr_text}`
         geminiParts.push({ text: `Raw ASR Text for reference:\n${asr_text}` });
     }
 
-    const selectedModel = model || "gemini-2.0-flash";
+    const selectedModel = model || "gemini-flash-lite-latest";
     const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent`;
 
     console.log(`Calling Gemini API (Multimodal - ${selectedModel})...`)
