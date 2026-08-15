@@ -1,4 +1,4 @@
-/// <reference path="../../../../../monorepo/node_modules/@types/deno/index.d.ts" />
+/// <reference lib="deno.ns" />
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
