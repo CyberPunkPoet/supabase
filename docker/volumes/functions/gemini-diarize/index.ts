@@ -75,8 +75,15 @@ CORE RULES:
       const audioBuffer = await audioResponse.arrayBuffer()
       const uint8Array = new Uint8Array(audioBuffer)
       const base64Audio = encode(uint8Array)
-      const mimeType = audioResponse.headers.get('content-type') || 'audio/mpeg'
-      console.log(`[Info] Detected MIME type: ${mimeType}`)
+      
+      let mimeType = audioResponse.headers.get('content-type') || 'audio/mpeg'
+      // If the cloud provider returns generic octet-stream, force it to audio/mpeg
+      // Gemini needs a valid audio/ mime type to trigger the audio-processing engine.
+      if (mimeType === 'application/octet-stream') {
+        mimeType = 'audio/mpeg'
+      }
+      
+      console.log(`[Info] Detected/Forced MIME type: ${mimeType}`)
 
       contents = [{
         role: 'user',
@@ -88,8 +95,8 @@ CORE RULES:
             }
           },
           {
-            text: `Please transcribe and diarize the attached audio file. 
-Reference ASR text (may be empty or inaccurate): 
+            text: `Please listen to the attached audio and provide a full Swedish transcription and speaker diarization. 
+Reference ASR text (may be inaccurate): 
 ${asrContent}`
           }
         ]
