@@ -2,8 +2,8 @@ import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-// Reverting to verified stable 3.5-flash to ensure multimodal reliability
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
+// Reverting to verified stable flash to ensure multimodal reliability
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
