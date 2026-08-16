@@ -51,8 +51,14 @@ Deno.serve(async (req: Request) => {
     if (audio_url) {
       console.log(`Fetching audio from: ${audio_url.substring(0, 50)}...`)
       const audioResponse = await fetch(audio_url)
+      
+      if (!audioResponse.ok) {
+        throw new Error(`Failed to fetch audio: ${audioResponse.statusText}`)
+      }
+
       const audioBuffer = await audioResponse.arrayBuffer()
-      const base64Audio = encode(audioBuffer)
+      const uint8Array = new Uint8Array(audioBuffer)
+      const base64Audio = encode(uint8Array)
       const mimeType = audioResponse.headers.get('content-type') || 'audio/mpeg'
 
       contents = [{
