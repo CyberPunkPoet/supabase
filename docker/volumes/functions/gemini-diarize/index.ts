@@ -1,9 +1,10 @@
-import { encode } from "https://deno.land/std@0.203.0/encoding/base64.ts"
+import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
 // Use gemini-flash-latest (mapping to 3.7) as per project policy
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
+
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -74,7 +75,9 @@ CORE RULES:
 
       const audioBuffer = await audioResponse.arrayBuffer()
       const uint8Array = new Uint8Array(audioBuffer)
-      const base64Audio = encode(uint8Array)
+      const base64Audio = encodeBase64(uint8Array)
+      
+      console.log(`[Info] Audio fetched. Buffer size: ${uint8Array.length} bytes. Base64 length: ${base64Audio.length}`)
       
       let mimeType = audioResponse.headers.get('content-type') || 'audio/mpeg'
       // If the cloud provider returns generic octet-stream, force it to audio/mpeg
