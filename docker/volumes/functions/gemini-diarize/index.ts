@@ -30,14 +30,15 @@ Deno.serve(async (req: Request) => {
 
     const { asr_text, audio_url } = await req.json()
 
-    if (!asr_text) {
-      return new Response(JSON.stringify({ error: 'No transcription text provided' }), {
+    if (!asr_text && !audio_url) {
+      return new Response(JSON.stringify({ error: 'No transcription text or audio URL provided' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
     const apiKey = SYSTEM_GEMINI_API_KEY
+    const asrContent = asr_text || "[No ASR provided]"
 
     if (!apiKey) {
       return new Response(JSON.stringify({ error: 'No Gemini API key configured on VPS' }), {
@@ -65,19 +66,24 @@ Deno.serve(async (req: Request) => {
         role: 'user',
         parts: [
           {
-            text: `You are a professional Swedish transcription assistant. Your goal is to perform an accurate diarization and transcription audit.
-You are provided with a raw ASR text transcript AND the actual audio of the conversation.
+            text: `You are a professional Swedish transcription assistant. Your goal is to perform an accurate diarization and transcription.
+CRITICAL: The provided audio file is your PRIMARY SOURCE OF TRUTH. 
 
-Rules:
-1. Always start with [lang:sv].
-2. Identify speakers clearly using [SPEAKER X:] tags.
-3. Use the audio to correct any misrecognized words in the ASR text.
-4. If you hear someone speaking but it's missing from the ASR, add it.
-5. If the ASR attributed words to the wrong speaker, fix the diarization.
-6. Return ONLY the final audited and diarized text.
+Context:
+- You are provided with a raw ASR text transcript (which may be empty, incomplete, or inaccurate).
+- You are provided with the actual audio of the conversation.
 
-ASR Text to Audit:
-${asr_text}`
+Instructions:
+1. Listen carefully to the audio. It is the absolute reference.
+2. If the ASR text is provided, use it as a helpful guide for spelling names or technical terms, but OVERRIDE it completely if the audio differs.
+3. If the ASR text is empty or missing, perform a full transcription and diarization from the audio from scratch.
+4. Always start the output with [lang:sv].
+5. Identify speakers clearly using [SPEAKER X:] tags (e.g., [SPEAKER 1:], [SPEAKER 2:]).
+6. Ensure the flow is natural and captures all dialogue heard in the audio.
+7. Return ONLY the final diarized and transcribed text.
+
+ASR Text (Reference only):
+${asrContent}`
           },
           {
             inline_data: {
