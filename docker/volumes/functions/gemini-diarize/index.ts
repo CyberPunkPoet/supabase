@@ -1,14 +1,15 @@
-import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"
+import { encodeBase64 } from "jsr:@std/encoding/base64"
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-// Reverting to verified stable flash to ensure multimodal reliability
+// Mandatory use of 3.x series as per project policy
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-extension-key',
 }
+
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -77,18 +78,20 @@ Deno.serve(async (req: Request) => {
         parts: [
           {
             text: `You are a professional Swedish transcription and diarization expert.
-CORE MANDATE: The provided audio file is your ONLY source of truth for the conversation content. 
+      Your goal is to provide a clean, accurate, and diarized transcript based on the attached audio.
 
-Instructions:
-1. Listen carefully to the attached audio.
-2. Provide a clean, accurate, and diarized transcript in Swedish.
-3. Use the ASR text below ONLY for spelling technical terms or names if they match the audio. Otherwise, IGNORE IT.
-4. Always start the response with [lang:sv].
-5. Identify speakers as [SPEAKER 1:], [SPEAKER 2:], etc.
-6. Return ONLY the diarized transcription text.
+      CORE RULES:
+      1. The AUDIO is the primary source of truth. Listen to it carefully.
+      2. If ASR text is provided, use it as a reference for spelling and technical terms, but OVERRIDE it if the audio says something different.
+      3. If no ASR text is provided, perform a complete transcription from the audio.
+      4. Always start the response with the tag [lang:sv].
+      5. Identify speakers using [SPEAKER X:] tags (e.g., [SPEAKER 1:], [SPEAKER 2:]).
+      6. Return ONLY the diarized transcription text.
 
-ASR Text (Reference only): 
-${asrContent}`
+      ASR Text (Reference only): 
+      ${asrContent}
+
+      Please transcribe and diarize the following audio:`
           },
           {
             inline_data: {
@@ -98,20 +101,21 @@ ${asrContent}`
           }
         ]
       }]
-    } else {
+      } else {
       contents = [{
         role: 'user',
         parts: [{ 
           text: `Take the following raw ASR text and perform accurate diarization into [SPEAKER 1:], [SPEAKER 2:], etc.
-Always start with [lang:sv].
+      Always start with [lang:sv].
 
-ASR Text:
-${asr_text}`
+      ASR Text:
+      ${asr_text}`
         }]
       }]
-    }
+      }
 
-    console.log("Calling Gemini (Multi-modal)...")
+      console.log("Calling Gemini 3.5 Flash Lite (Multi-modal)...")
+
 
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
