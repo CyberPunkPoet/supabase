@@ -2,9 +2,8 @@ import { encodeBase64 } from "https://deno.land/std@0.224.0/encoding/base64.ts"
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-// Use gemini-flash-latest (mapping to 3.7) as per project policy
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
-
+// Reverting to verified stable 3.5-flash to ensure multimodal reliability
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -49,21 +48,6 @@ Deno.serve(async (req: Request) => {
 
     const asrContent = asr_text || "[No ASR text provided]"
     let contents: any[] = []
-    let systemInstruction = {
-      parts: [{
-        text: `You are a professional Swedish transcription and diarization expert.
-Your goal is to provide a clean, accurate, and diarized transcript based on the provided audio.
-
-CORE RULES:
-1. The AUDIO is the primary source of truth. Listen to it carefully.
-2. If ASR text is provided, use it as a reference for spelling and technical terms, but OVERRIDE it if the audio says something different.
-3. If no ASR text is provided, perform a complete transcription from the audio.
-4. Always start the response with the tag [lang:sv].
-5. Identify speakers using [SPEAKER X:] tags (e.g., [SPEAKER 1:], [SPEAKER 2:]).
-6. Return ONLY the diarized transcription text. Do not include meta-commentary about the binary data or file headers.
-7. If you hear someone speaking, transcribe it. If you hear silence, ignore it.`
-      }]
-    }
 
     if (audio_url) {
       console.log(`[Info] Fetching audio from: ${audio_url.substring(0, 60)}...`)
@@ -92,15 +76,25 @@ CORE RULES:
         role: 'user',
         parts: [
           {
+            text: `You are a professional Swedish transcription and diarization expert.
+CORE MANDATE: The provided audio file is your ONLY source of truth for the conversation content. 
+
+Instructions:
+1. Listen carefully to the attached audio.
+2. Provide a clean, accurate, and diarized transcript in Swedish.
+3. Use the ASR text below ONLY for spelling technical terms or names if they match the audio. Otherwise, IGNORE IT.
+4. Always start the response with [lang:sv].
+5. Identify speakers as [SPEAKER 1:], [SPEAKER 2:], etc.
+6. Return ONLY the diarized transcription text.
+
+ASR Text (Reference only): 
+${asrContent}`
+          },
+          {
             inline_data: {
               mime_type: mimeType,
               data: base64Audio
             }
-          },
-          {
-            text: `Please listen to the attached audio and provide a full Swedish transcription and speaker diarization. 
-Reference ASR text (may be inaccurate): 
-${asrContent}`
           }
         ]
       }]
@@ -117,7 +111,7 @@ ${asr_text}`
       }]
     }
 
-    console.log("Calling Gemini 3.5 Flash Lite (Multi-modal)...")
+    console.log("Calling Gemini (Multi-modal)...")
 
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
@@ -126,7 +120,6 @@ ${asr_text}`
       },
       body: JSON.stringify({ 
         contents,
-        system_instruction: systemInstruction,
         generationConfig: {
           temperature: 0.1, // Keep it grounded for transcription
         }
