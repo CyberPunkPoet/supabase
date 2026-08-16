@@ -2,8 +2,8 @@ import { encode } from "https://deno.land/std@0.203.0/encoding/base64.ts"
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-// Use the 3.5-flash-lite-latest alias as per project policy
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite-latest:generateContent"
+// Use gemini-flash-latest (mapping to 3.7) as per project policy
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
