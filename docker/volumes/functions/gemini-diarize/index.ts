@@ -1,6 +1,8 @@
+import { encode } from "https://deno.land/std@0.203.0/encoding/base64.ts"
+
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-lite-latest:generateContent"
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -26,7 +28,7 @@ Deno.serve(async (req: Request) => {
       })
     }
 
-    const { asr_text } = await req.json()
+    const { asr_text, audio_url } = await req.json()
 
     if (!asr_text) {
       return new Response(JSON.stringify({ error: 'No transcription text provided' }), {
@@ -38,13 +40,52 @@ Deno.serve(async (req: Request) => {
     const apiKey = SYSTEM_GEMINI_API_KEY
 
     if (!apiKey) {
-      return new Response(JSON.stringify({ error: 'No Gemini API key configured on VPS (GEMINI_API_KEY environment variable is missing).' }), {
+      return new Response(JSON.stringify({ error: 'No Gemini API key configured on VPS' }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
     }
 
-    const prompt = `You are a professional Swedish transcription assistant. Your goal is to take raw ASR text and perform accurate diarization. 
+    let contents: any[] = []
+
+    if (audio_url) {
+      console.log(`Fetching audio from: ${audio_url.substring(0, 50)}...`)
+      const audioResponse = await fetch(audio_url)
+      const audioBuffer = await audioResponse.arrayBuffer()
+      const base64Audio = encode(audioBuffer)
+      const mimeType = audioResponse.headers.get('content-type') || 'audio/mpeg'
+
+      contents = [{
+        role: 'user',
+        parts: [
+          {
+            text: `You are a professional Swedish transcription assistant. Your goal is to perform an accurate diarization and transcription audit.
+You are provided with a raw ASR text transcript AND the actual audio of the conversation.
+
+Rules:
+1. Always start with [lang:sv].
+2. Identify speakers clearly using [SPEAKER X:] tags.
+3. Use the audio to correct any misrecognized words in the ASR text.
+4. If you hear someone speaking but it's missing from the ASR, add it.
+5. If the ASR attributed words to the wrong speaker, fix the diarization.
+6. Return ONLY the final audited and diarized text.
+
+ASR Text to Audit:
+${asr_text}`
+          },
+          {
+            inline_data: {
+              mime_type: mimeType,
+              data: base64Audio
+            }
+          }
+        ]
+      }]
+    } else {
+      contents = [{
+        role: 'user',
+        parts: [{ 
+          text: `You are a professional Swedish transcription assistant. Your goal is to take raw ASR text and perform accurate diarization. 
 Rules:
 1. Always start with [lang:sv].
 2. Identify speakers as [SPEAKER 1:], [SPEAKER 2:], etc.
@@ -53,19 +94,18 @@ Rules:
 5. Return ONLY the diarized text.
 
 Input ASR: ${asr_text}`
+        }]
+      }]
+    }
 
-    console.log("Calling Gemini API...")
+    console.log("Calling Gemini API (Multi-modal)...")
 
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        contents: [{
-          parts: [{ text: prompt }]
-        }]
-      })
+      body: JSON.stringify({ contents })
     })
 
     const data = await response.json()
