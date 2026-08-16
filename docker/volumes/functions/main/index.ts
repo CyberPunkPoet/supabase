@@ -5,6 +5,7 @@ console.log('main function started')
 const JWT_SECRET = Deno.env.get('JWT_SECRET')
 const SUPABASE_URL = Deno.env.get('SUPABASE_URL')
 const VERIFY_JWT = Deno.env.get('VERIFY_JWT') === 'true'
+const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
 
 // Create JWKS for ES256/RS256 tokens (newer tokens)
 let SUPABASE_JWT_KEYS: ReturnType<typeof jose.createRemoteJWKSet> | null = null
@@ -105,7 +106,10 @@ async function isValidHybridJWT(jwt: string): Promise<boolean> {
 }
 
 Deno.serve(async (req: Request) => {
-  if (req.method !== 'OPTIONS' && VERIFY_JWT) {
+  const extensionKey = req.headers.get('x-extension-key')
+  const isExtensionRequest = extensionKey && INTERNAL_EXTENSION_KEY && extensionKey === INTERNAL_EXTENSION_KEY
+
+  if (req.method !== 'OPTIONS' && VERIFY_JWT && !isExtensionRequest) {
     try {
       const token = getAuthToken(req)
       const isValidJWT = await isValidHybridJWT(token);
