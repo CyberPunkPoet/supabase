@@ -25,8 +25,8 @@ function encodeBase64(uint8: Uint8Array): string {
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-// Using gemini-3.7-flash (latest)
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
+// Using gemini-3.6-flash (latest)
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.6-flash:generateContent"
 
 const diarizeCorsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -102,7 +102,7 @@ Instructions:
     }]
 
     // 4. Call Gemini
-    console.log(`[${requestId}] Calling Gemini 3.7 Flash...`)
+    console.log(`[${requestId}] Calling Gemini 3.6 Flash...`)
     const startGemini = Date.now()
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
