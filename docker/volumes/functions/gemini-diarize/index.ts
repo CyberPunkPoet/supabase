@@ -1,8 +1,15 @@
-import { encodeBase64 } from "jsr:@std/encoding/base64"
+// Dependency-free Base64 encoder to fix worker boot errors
+function encodeBase64(uint8: Uint8Array): string {
+  let bin = "";
+  for (let i = 0; i < uint8.byteLength; i++) {
+    bin += String.fromCharCode(uint8[i]);
+  }
+  return btoa(bin);
+}
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-// Using gemini-3.7-flash (latest) to resolve 3.5-flash-lite internal errors
+// Using gemini-3.7-flash (latest)
 const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
 
 const corsHeaders = {
@@ -48,21 +55,6 @@ Deno.serve(async (req: Request) => {
 
     const asrContent = asr_text || "[No ASR text provided]"
     let contents: any[] = []
-    
-    // Separate persona and rules into system_instruction for cleaner multimodal processing
-    const systemInstruction = {
-      parts: [{
-        text: `You are a professional Swedish transcription and diarization expert.
-CORE MANDATE: The provided audio file is your ONLY source of truth.
-
-Instructions:
-1. Provide a clean, accurate, and diarized transcript in Swedish.
-2. Use ASR text ONLY for spelling technical terms if they match the audio.
-3. Always start with [lang:sv].
-4. Identify speakers as [SPEAKER 1:], [SPEAKER 2:], etc.
-5. Return ONLY the diarized transcription text.`
-      }]
-    }
 
     if (audio_url) {
       console.log(`[Info] Fetching audio from: ${audio_url.substring(0, 60)}...`)
@@ -85,7 +77,7 @@ Instructions:
       
       console.log(`[Info] Detected/Forced MIME type: ${mimeType}`)
 
-      // Optimization for Gemini 3.x: Media part FIRST, followed by the text prompt
+      // Simplified payload for Gemini 3.x to resolve 500 errors
       contents = [{
         role: 'user',
         parts: [
@@ -96,7 +88,16 @@ Instructions:
             }
           },
           {
-            text: `Please transcribe and diarize the attached audio. 
+            text: `You are a professional Swedish transcription and diarization expert.
+CORE MANDATE: The provided audio file is your ONLY source of truth.
+
+Instructions:
+1. Provide a clean, accurate, and diarized transcript in Swedish.
+2. Use ASR text ONLY for spelling technical terms.
+3. Always start with [lang:sv].
+4. Identify speakers as [SPEAKER 1:], [SPEAKER 2:], etc.
+5. Return ONLY the diarized transcription text.
+
 ASR Reference: ${asrContent}`
           }
         ]
@@ -121,13 +122,7 @@ ${asr_text}`
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ 
-        contents,
-        system_instruction: systemInstruction,
-        generationConfig: {
-          temperature: 0.1,
-        }
-      })
+      body: JSON.stringify({ contents })
     })
 
     const data = await response.json()
