@@ -2,14 +2,13 @@ import { encodeBase64 } from "jsr:@std/encoding/base64"
 
 const SYSTEM_GEMINI_API_KEY = Deno.env.get('GEMINI_API_KEY')
 const INTERNAL_EXTENSION_KEY = Deno.env.get('INTERNAL_EXTENSION_KEY')
-// Mandatory use of 3.x series as per project policy
-const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+// Using gemini-3.7-flash (latest) to resolve 3.5-flash-lite internal errors
+const GEMINI_API_URL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.7-flash:generateContent"
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type, x-extension-key',
 }
-
 
 Deno.serve(async (req: Request) => {
   if (req.method === 'OPTIONS') {
@@ -49,6 +48,21 @@ Deno.serve(async (req: Request) => {
 
     const asrContent = asr_text || "[No ASR text provided]"
     let contents: any[] = []
+    
+    // Separate persona and rules into system_instruction for cleaner multimodal processing
+    const systemInstruction = {
+      parts: [{
+        text: `You are a professional Swedish transcription and diarization expert.
+CORE MANDATE: The provided audio file is your ONLY source of truth.
+
+Instructions:
+1. Provide a clean, accurate, and diarized transcript in Swedish.
+2. Use ASR text ONLY for spelling technical terms if they match the audio.
+3. Always start with [lang:sv].
+4. Identify speakers as [SPEAKER 1:], [SPEAKER 2:], etc.
+5. Return ONLY the diarized transcription text.`
+      }]
+    }
 
     if (audio_url) {
       console.log(`[Info] Fetching audio from: ${audio_url.substring(0, 60)}...`)
@@ -65,57 +79,42 @@ Deno.serve(async (req: Request) => {
       console.log(`[Info] Audio fetched. Buffer size: ${uint8Array.length} bytes. Base64 length: ${base64Audio.length}`)
       
       let mimeType = audioResponse.headers.get('content-type') || 'audio/mpeg'
-      // If the cloud provider returns generic octet-stream, force it to audio/mpeg
-      // Gemini needs a valid audio/ mime type to trigger the audio-processing engine.
       if (mimeType === 'application/octet-stream') {
         mimeType = 'audio/mpeg'
       }
       
       console.log(`[Info] Detected/Forced MIME type: ${mimeType}`)
 
+      // Optimization for Gemini 3.x: Media part FIRST, followed by the text prompt
       contents = [{
         role: 'user',
         parts: [
-          {
-            text: `You are a professional Swedish transcription and diarization expert.
-      Your goal is to provide a clean, accurate, and diarized transcript based on the attached audio.
-
-      CORE RULES:
-      1. The AUDIO is the primary source of truth. Listen to it carefully.
-      2. If ASR text is provided, use it as a reference for spelling and technical terms, but OVERRIDE it if the audio says something different.
-      3. If no ASR text is provided, perform a complete transcription from the audio.
-      4. Always start the response with the tag [lang:sv].
-      5. Identify speakers using [SPEAKER X:] tags (e.g., [SPEAKER 1:], [SPEAKER 2:]).
-      6. Return ONLY the diarized transcription text.
-
-      ASR Text (Reference only): 
-      ${asrContent}
-
-      Please transcribe and diarize the following audio:`
-          },
           {
             inline_data: {
               mime_type: mimeType,
               data: base64Audio
             }
+          },
+          {
+            text: `Please transcribe and diarize the attached audio. 
+ASR Reference: ${asrContent}`
           }
         ]
       }]
-      } else {
+    } else {
       contents = [{
         role: 'user',
         parts: [{ 
           text: `Take the following raw ASR text and perform accurate diarization into [SPEAKER 1:], [SPEAKER 2:], etc.
-      Always start with [lang:sv].
+Always start with [lang:sv].
 
-      ASR Text:
-      ${asr_text}`
+ASR Text:
+${asr_text}`
         }]
       }]
-      }
+    }
 
-      console.log("Calling Gemini 3.5 Flash Lite (Multi-modal)...")
-
+    console.log("Calling Gemini 3.7 Flash (Multi-modal)...")
 
     const response = await fetch(`${GEMINI_API_URL}?key=${apiKey}`, {
       method: 'POST',
@@ -124,8 +123,9 @@ Deno.serve(async (req: Request) => {
       },
       body: JSON.stringify({ 
         contents,
+        system_instruction: systemInstruction,
         generationConfig: {
-          temperature: 0.1, // Keep it grounded for transcription
+          temperature: 0.1,
         }
       })
     })
